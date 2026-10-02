@@ -217,7 +217,7 @@ export default function PaperPreview({ selection, selectedQuestions, onBack, onS
                 Q{sd.section.question_number}. {sd.section.unit !== null ? `From Unit ${unitRoman(sd.section.unit)}` : 'Short Answer Questions'}
               </div>
               <div className="section-instruction">
-                Answer any {sd.section.questions_to_answer} out of {sd.section.available_questions}. ({sd.section.marks_each} marks each = {sd.section.questions_to_answer * sd.section.marks_each} marks)
+                Answer any {sd.section.questions_to_answer} of the following. ({sd.section.marks_each} marks each = {sd.section.questions_to_answer * sd.section.marks_each} marks)
               </div>
               <ol>
                 {sd.questions.map((q) => (

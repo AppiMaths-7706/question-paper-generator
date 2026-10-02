@@ -12,12 +12,6 @@ type Props = {
   onPreview: (selectedQuestions: SelectedQuestions) => void
 }
 
-type UnitGroup = {
-  unit: number
-  fiveMarkQuestions: Question[]
-  twoMarkQuestions: Question[]
-}
-
 export default function QuestionBank({ selection, onBack, onPreview }: Props) {
   const [sections, setSections] = useState<PaperSection[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
@@ -56,25 +50,21 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
     loadData()
   }, [selection])
 
-  const groupByUnit = (qs: Question[]): UnitGroup[] => {
-    const units: { [key: number]: UnitGroup } = {}
-    for (const q of qs) {
-      if (!units[q.unit]) {
-        units[q.unit] = { unit: q.unit, fiveMarkQuestions: [], twoMarkQuestions: [] }
-      }
-      if (q.marks === 5) {
-        units[q.unit].fiveMarkQuestions.push(q)
-      } else {
-        units[q.unit].twoMarkQuestions.push(q)
-      }
+  const unitRoman = (unit: number) => {
+    return ['I', 'II', 'III', 'IV', 'V'][unit - 1] || String(unit)
+  }
+
+  const getSectionQuestions = (section: PaperSection): Question[] => {
+    if (section.unit !== null) {
+      return questions.filter((q) => q.unit === section.unit && q.marks === section.marks_each)
     }
-    return Object.values(units).sort((a, b) => a.unit - b.unit)
+    return questions.filter((q) => q.marks === section.marks_each)
   }
 
   const toggleQuestion = (sectionNumber: number, questionId: string, maxAllowed: number) => {
     setSelected((prev) => {
       const newSelected = { ...prev }
-      const currentSet = new Set(prev[sectionNumber] || [])
+      const currentSet = new Set(prev[sectionNumber] || new Set<string>())
       if (currentSet.has(questionId)) {
         currentSet.delete(questionId)
       } else {
@@ -90,11 +80,11 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
 
   const allSectionsComplete = sections.every((s) => {
     const count = selected[s.question_number]?.size || 0
-    return count === s.questions_to_answer
+    return count === s.available_questions
   })
 
   const totalSelected = sections.reduce((sum, s) => sum + (selected[s.question_number]?.size || 0), 0)
-  const totalRequired = sections.reduce((sum, s) => sum + s.questions_to_answer, 0)
+  const totalRequired = sections.reduce((sum, s) => sum + s.available_questions, 0)
 
   const handlePreview = () => {
     onPreview(selected)
@@ -107,8 +97,6 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
       </div>
     )
   }
-
-  const unitGroups = groupByUnit(questions)
 
   return (
     <div>
@@ -136,18 +124,12 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
 
       <div className="question-bank">
         {sections.map((section) => {
-          const sectionQuestions = section.unit !== null
-            ? (section.marks_each === 5
-                ? unitGroups.find((g) => g.unit === section.unit)?.fiveMarkQuestions || []
-                : unitGroups.find((g) => g.unit === section.unit)?.twoMarkQuestions || [])
-            : questions.filter((q) => q.marks === section.marks_each)
-
-          const availablePool = sectionQuestions.slice(0, section.available_questions)
+          const sectionQuestions = getSectionQuestions(section)
           const selectedCount = selected[section.question_number]?.size || 0
-          const isComplete = selectedCount === section.questions_to_answer
+          const isComplete = selectedCount === section.available_questions
           const unitLabel = section.unit !== null
-            ? `Unit ${['I', 'II', 'III', 'IV'][section.unit - 1] || section.unit}`
-            : 'Short Questions'
+            ? `Unit ${unitRoman(section.unit)}`
+            : 'Short Questions (2 marks each)'
 
           return (
             <div key={section.id} className="unit-section">
@@ -155,15 +137,15 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
                 <h3>
                   Q{section.question_number}. {unitLabel}
                   <span style={{ fontWeight: 400, color: 'var(--neutral-500)', fontSize: '0.8125rem', marginLeft: '8px' }}>
-                    &mdash; Answer any {section.questions_to_answer} out of {section.available_questions} ({section.marks_each} marks each)
+                    &mdash; Select {section.available_questions} questions ({section.marks_each} marks each)
                   </span>
                 </h3>
                 <span className={`selection-badge ${isComplete ? 'complete' : selectedCount > 0 ? 'incomplete' : ''}`}>
-                  Selected {selectedCount} / {section.questions_to_answer}
+                  Q{section.question_number}: Selected {selectedCount} / {section.available_questions}
                 </span>
               </div>
               <div className="question-list">
-                {availablePool.map((q, idx) => {
+                {sectionQuestions.map((q, idx) => {
                   const isSelected = selected[section.question_number]?.has(q.id) || false
                   return (
                     <label
@@ -174,7 +156,7 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={() => toggleQuestion(section.question_number, q.id, section.questions_to_answer)}
+                          onChange={() => toggleQuestion(section.question_number, q.id, section.available_questions)}
                         />
                       </span>
                       <span className="q-number">Q{idx + 1}</span>
@@ -183,7 +165,7 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
                     </label>
                   )
                 })}
-                {availablePool.length === 0 && (
+                {sectionQuestions.length === 0 && (
                   <div style={{ padding: '16px 24px', color: 'var(--neutral-400)', fontSize: '0.875rem' }}>
                     No questions available for this section.
                   </div>
@@ -210,7 +192,7 @@ export default function QuestionBank({ selection, onBack, onPreview }: Props) {
             disabled={!allSectionsComplete}
             onClick={handlePreview}
           >
-            Preview Paper
+            Preview Question Paper
           </button>
         </div>
       </div>
